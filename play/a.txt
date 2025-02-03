@@ -1,0 +1,204 @@
+To create a Blazor Server app with MS SQL Server authentication (login page), follow these steps using Visual Studio 2022.
+
+1️⃣ Create a Blazor Server App in Visual Studio 2022
+	1.	Open Visual Studio 2022.
+	2.	Click Create a new project.
+	3.	Select Blazor Server App and click Next.
+	4.	Enter Project Name (e.g., BlazorAuthApp) → Click Create.
+	5.	Choose .NET 8 (or latest) and click Create.
+
+2️⃣ Install Required Packages
+
+Open the Package Manager Console (Tools → NuGet Package Manager → Package Manager Console) and run:
+
+dotnet add package Microsoft.EntityFrameworkCore.SqlServer
+dotnet add package Microsoft.AspNetCore.Identity.EntityFrameworkCore
+dotnet add package Microsoft.AspNetCore.Identity.UI
+
+3️⃣ Configure SQL Server Database
+
+In appsettings.json, add the database connection string:
+
+"ConnectionStrings": {
+  "DefaultConnection": "Server=YOUR_SERVER;Database=BlazorAuthDB;User Id=YOUR_USER;Password=YOUR_PASSWORD;TrustServerCertificate=True;"
+}
+
+Replace:
+	•	YOUR_SERVER → SQL Server name (e.g., localhost or .\SQLEXPRESS)
+	•	YOUR_USER and YOUR_PASSWORD → SQL Server credentials.
+
+4️⃣ Set Up Entity Framework Core and Identity
+
+📌 Create Database Context (AppDbContext.cs)
+
+Create a Data folder and add AppDbContext.cs:
+
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+
+public class AppDbContext : IdentityDbContext<IdentityUser>
+{
+    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+}
+
+📌 Configure Identity in Program.cs
+
+Modify Program.cs to set up authentication:
+
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddDefaultIdentity<IdentityUser>()
+    .AddEntityFrameworkStores<AppDbContext>();
+
+builder.Services.AddRazorPages();
+builder.Services.AddServerSideBlazor();
+builder.Services.AddAuthentication();
+builder.Services.AddAuthorization();
+
+var app = builder.Build();
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Error");
+    app.UseHsts();
+}
+
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+
+app.UseRouting();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapBlazorHub();
+app.MapFallbackToPage("/_Host");
+
+app.Run();
+
+5️⃣ Apply Database Migrations
+
+Run the following commands in the Package Manager Console:
+
+dotnet ef migrations add InitialCreate
+dotnet ef database update
+
+This will create the BlazorAuthDB database with the required Identity tables.
+
+6️⃣ Create a Login Page
+
+Create a Pages/Login.razor file:
+
+@page "/login"
+@using Microsoft.AspNetCore.Identity
+@inject SignInManager<IdentityUser> SignInManager
+@inject NavigationManager Navigation
+
+<h3>Login</h3>
+
+@if (!string.IsNullOrEmpty(ErrorMessage))
+{
+    <div class="alert alert-danger">@ErrorMessage</div>
+}
+
+<EditForm Model="loginModel" OnValidSubmit="HandleLogin">
+    <DataAnnotationsValidator />
+    <div class="mb-3">
+        <label>Email:</label>
+        <InputText class="form-control" @bind-Value="loginModel.Email" />
+    </div>
+    <div class="mb-3">
+        <label>Password:</label>
+        <InputText type="password" class="form-control" @bind-Value="loginModel.Password" />
+    </div>
+    <button type="submit" class="btn btn-primary">Login</button>
+</EditForm>
+
+@code {
+    private LoginModel loginModel = new();
+    private string ErrorMessage = "";
+
+    private async Task HandleLogin()
+    {
+        var result = await SignInManager.PasswordSignInAsync(loginModel.Email, loginModel.Password, false, false);
+        if (result.Succeeded)
+        {
+            Navigation.NavigateTo("/");
+        }
+        else
+        {
+            ErrorMessage = "Invalid email or password!";
+        }
+    }
+
+    public class LoginModel
+    {
+        public string Email { get; set; }
+        public string Password { get; set; }
+    }
+}
+
+7️⃣ Restrict Access to Protected Pages
+
+For pages that require login, add:
+
+@attribute [Authorize]
+
+For example, in Pages/Protected.razor:
+
+@page "/protected"
+@attribute [Authorize]
+
+<h3>Welcome to the Protected Page</h3>
+<p>Only authenticated users can see this.</p>
+
+8️⃣ Add Logout Button
+
+Modify Shared/MainLayout.razor:
+
+@using Microsoft.AspNetCore.Identity
+@inject SignInManager<IdentityUser> SignInManager
+@inject NavigationManager Navigation
+
+@if (SignInManager.IsSignedIn(User))
+{
+    <button class="btn btn-danger" @onclick="Logout">Logout</button>
+}
+
+@code {
+    private async Task Logout()
+    {
+        await SignInManager.SignOutAsync();
+        Navigation.NavigateTo("/login");
+    }
+}
+
+9️⃣ Running the Application
+	1.	Press F5 in Visual Studio.
+	2.	Open https://localhost:5001/login.
+	3.	Login with credentials stored in your MS SQL Server.
+
+🔹 Summary
+
+✅ Blazor Server handles login using Identity + MS SQL Server
+✅ Authentication & authorization work without a separate backend
+✅ Protected pages can be accessed only after login
+
+🚀 Next Steps
+	•	Do you want role-based access control (Admin, Employee, HR)?
+	•	Do you need OAuth (Google, Azure AD, etc.)?
+	•	Would you like a user registration page?
+
+Let me know how I can refine this for your needs! 😊
