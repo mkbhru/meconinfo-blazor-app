@@ -1,5 +1,21 @@
+@page "/test"
 <h3>test</h3>
+<h1>Hello My name is @UserName My old name is @MyName()</h1>
+<button onclick="@ChangeName">Change Name</button>
 
-@code {
-    
+@code
+{
+    private string UserName = "Manish";
+
+    private void ChangeName()
+    {
+        UserName = "Hugo";
+        return;
+    }
+
+    private string MyName(){
+        return "Rama is good";
+    }
+
 }
+
